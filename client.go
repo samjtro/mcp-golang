@@ -469,9 +469,11 @@ type CreateMessageRequestParams struct {
 
 type CreateMessageRequestParamsIncludeContext string
 
-const CreateMessageRequestParamsIncludeContextAllServers CreateMessageRequestParamsIncludeContext = "allServers"
-const CreateMessageRequestParamsIncludeContextNone CreateMessageRequestParamsIncludeContext = "none"
-const CreateMessageRequestParamsIncludeContextThisServer CreateMessageRequestParamsIncludeContext = "thisServer"
+const (
+	CreateMessageRequestParamsIncludeContextAllServers CreateMessageRequestParamsIncludeContext = "allServers"
+	CreateMessageRequestParamsIncludeContextNone       CreateMessageRequestParamsIncludeContext = "none"
+	CreateMessageRequestParamsIncludeContextThisServer CreateMessageRequestParamsIncludeContext = "thisServer"
+)
 
 var enumValues_CreateMessageRequestParamsIncludeContext = []interface{}{
 	"allServers",
@@ -698,6 +700,192 @@ func (j *ListToolsRequest) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	*j = ListToolsRequest(plain)
+	return nil
+}
+
+// A notification from the client to the server, informing it that the list of
+// roots has changed.
+// This notification should be sent whenever the client adds, removes, or modifies
+// any root.
+// The server should then request an updated list of roots using the
+// ListRootsRequest.
+type RootsListChangedNotification struct {
+	// Method corresponds to the JSON schema field "method".
+	Method string `json:"method" yaml:"method" mapstructure:"method"`
+
+	// Params corresponds to the JSON schema field "params".
+	Params *RootsListChangedNotificationParams `json:"params,omitempty" yaml:"params,omitempty" mapstructure:"params,omitempty"`
+}
+
+type RootsListChangedNotificationParams struct {
+	// This parameter name is reserved by MCP to allow clients and servers to attach
+	// additional metadata to their notifications.
+	Meta RootsListChangedNotificationParamsMeta `json:"_meta,omitempty" yaml:"_meta,omitempty" mapstructure:"_meta,omitempty"`
+
+	AdditionalProperties interface{} `mapstructure:",remain"`
+}
+
+// A request from the client to the server, to enable or adjust logging.
+type SetLevelRequest struct {
+	// Method corresponds to the JSON schema field "method".
+	Method string `json:"method" yaml:"method" mapstructure:"method"`
+
+	// Params corresponds to the JSON schema field "params".
+	Params SetLevelRequestParams `json:"params" yaml:"params" mapstructure:"params"`
+}
+
+type SetLevelRequestParams struct {
+	// The level of logging that the client wants to receive from the server. The
+	// server should send all logs at this level and higher (i.e., more severe) to the
+	// client as notifications/logging/message.
+	Level LoggingLevel `json:"level" yaml:"level" mapstructure:"level"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *SetLevelRequestParams) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["level"]; raw != nil && !ok {
+		return fmt.Errorf("field level in SetLevelRequestParams: required")
+	}
+	type Plain SetLevelRequestParams
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = SetLevelRequestParams(plain)
+	return nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *SetLevelRequest) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["method"]; raw != nil && !ok {
+		return fmt.Errorf("field method in SetLevelRequest: required")
+	}
+	if _, ok := raw["params"]; raw != nil && !ok {
+		return fmt.Errorf("field params in SetLevelRequest: required")
+	}
+	type Plain SetLevelRequest
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = SetLevelRequest(plain)
+	return nil
+}
+
+// Sent from the client to request resources/updated notifications from the server
+// whenever a particular resource changes.
+type SubscribeRequest struct {
+	// Method corresponds to the JSON schema field "method".
+	Method string `json:"method" yaml:"method" mapstructure:"method"`
+
+	// Params corresponds to the JSON schema field "params".
+	Params SubscribeRequestParams `json:"params" yaml:"params" mapstructure:"params"`
+}
+
+type SubscribeRequestParams struct {
+	// The URI of the resource to subscribe to. The URI can use any protocol; it is up
+	// to the server how to interpret it.
+	Uri string `json:"uri" yaml:"uri" mapstructure:"uri"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *SubscribeRequestParams) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["uri"]; raw != nil && !ok {
+		return fmt.Errorf("field uri in SubscribeRequestParams: required")
+	}
+	type Plain SubscribeRequestParams
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = SubscribeRequestParams(plain)
+	return nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *SubscribeRequest) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["method"]; raw != nil && !ok {
+		return fmt.Errorf("field method in SubscribeRequest: required")
+	}
+	if _, ok := raw["params"]; raw != nil && !ok {
+		return fmt.Errorf("field params in SubscribeRequest: required")
+	}
+	type Plain SubscribeRequest
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = SubscribeRequest(plain)
+	return nil
+}
+
+// Sent from the client to request cancellation of resources/updated notifications
+// from the server. This should follow a previous resources/subscribe request.
+type UnsubscribeRequest struct {
+	// Method corresponds to the JSON schema field "method".
+	Method string `json:"method" yaml:"method" mapstructure:"method"`
+
+	// Params corresponds to the JSON schema field "params".
+	Params UnsubscribeRequestParams `json:"params" yaml:"params" mapstructure:"params"`
+}
+
+type UnsubscribeRequestParams struct {
+	// The URI of the resource to unsubscribe from.
+	Uri string `json:"uri" yaml:"uri" mapstructure:"uri"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *UnsubscribeRequestParams) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["uri"]; raw != nil && !ok {
+		return fmt.Errorf("field uri in UnsubscribeRequestParams: required")
+	}
+	type Plain UnsubscribeRequestParams
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = UnsubscribeRequestParams(plain)
+	return nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *UnsubscribeRequest) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["method"]; raw != nil && !ok {
+		return fmt.Errorf("field method in UnsubscribeRequest: required")
+	}
+	if _, ok := raw["params"]; raw != nil && !ok {
+		return fmt.Errorf("field params in UnsubscribeRequest: required")
+	}
+	type Plain UnsubscribeRequest
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = UnsubscribeRequest(plain)
 	return nil
 }
 

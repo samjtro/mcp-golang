@@ -242,7 +242,7 @@ type InitializeResult struct {
 	Meta InitializeResultMeta `json:"_meta,omitempty" yaml:"_meta,omitempty" mapstructure:"_meta,omitempty"`
 
 	// Capabilities corresponds to the JSON schema field "capabilities".
-	Capabilities ServerCapabilities `json:"capabilities" yaml:"capabilities" mapstructure:"capabilities"`
+	Capabilities serverCapabilities `json:"capabilities" yaml:"capabilities" mapstructure:"capabilities"`
 
 	// Instructions describing how to use the server and its features.
 	//
@@ -484,6 +484,186 @@ func (j *ListToolsResult) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	*j = ListToolsResult(plain)
+	return nil
+}
+
+// An optional notification from the server to the client, informing it that the
+// list of resources it can read from has changed. This may be issued by servers
+// without any previous subscription from the client.
+type ResourceListChangedNotification struct {
+	// Method corresponds to the JSON schema field "method".
+	Method string `json:"method" yaml:"method" mapstructure:"method"`
+
+	// Params corresponds to the JSON schema field "params".
+	Params *ResourceListChangedNotificationParams `json:"params,omitempty" yaml:"params,omitempty" mapstructure:"params,omitempty"`
+}
+
+type ResourceListChangedNotificationParams struct {
+	// This parameter name is reserved by MCP to allow clients and servers to attach
+	// additional metadata to their notifications.
+	Meta ResourceListChangedNotificationParamsMeta `json:"_meta,omitempty" yaml:"_meta,omitempty" mapstructure:"_meta,omitempty"`
+
+	AdditionalProperties interface{} `mapstructure:",remain"`
+}
+
+// A template description for resources available on the server.
+type ResourceTemplate struct {
+	// Annotations corresponds to the JSON schema field "annotations".
+	Annotations *ResourceTemplateAnnotations `json:"annotations,omitempty" yaml:"annotations,omitempty" mapstructure:"annotations,omitempty"`
+
+	// A description of what this template is for.
+	//
+	// This can be used by clients to improve the LLM's understanding of available
+	// resources. It can be thought of like a "hint" to the model.
+	Description *string `json:"description,omitempty" yaml:"description,omitempty" mapstructure:"description,omitempty"`
+
+	// The MIME type for all resources that match this template. This should only be
+	// included if all resources matching this template have the same type.
+	MimeType *string `json:"mimeType,omitempty" yaml:"mimeType,omitempty" mapstructure:"mimeType,omitempty"`
+
+	// A human-readable name for the type of resource this template refers to.
+	//
+	// This can be used by clients to populate UI elements.
+	Name string `json:"name" yaml:"name" mapstructure:"name"`
+
+	// A URI template (according to RFC 6570) that can be used to construct resource
+	// URIs.
+	UriTemplate string `json:"uriTemplate" yaml:"uriTemplate" mapstructure:"uriTemplate"`
+}
+
+type ResourceTemplateAnnotations struct {
+	// Describes who the intended customer of this object or data is.
+	//
+	// It can include multiple entries to indicate content useful for multiple
+	// audiences (e.g., `["user", "assistant"]`).
+	Audience []Role `json:"audience,omitempty" yaml:"audience,omitempty" mapstructure:"audience,omitempty"`
+
+	// Describes how important this data is for operating the server.
+	//
+	// A value of 1 means "most important," and indicates that the data is
+	// effectively required, while 0 means "least important," and indicates that
+	// the data is entirely optional.
+	Priority *float64 `json:"priority,omitempty" yaml:"priority,omitempty" mapstructure:"priority,omitempty"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *ResourceTemplateAnnotations) UnmarshalJSON(b []byte) error {
+	type Plain ResourceTemplateAnnotations
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	if plain.Priority != nil && 1 < *plain.Priority {
+		return fmt.Errorf("field %s: must be <= %v", "priority", 1)
+	}
+	if plain.Priority != nil && 0 > *plain.Priority {
+		return fmt.Errorf("field %s: must be >= %v", "priority", 0)
+	}
+	*j = ResourceTemplateAnnotations(plain)
+	return nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *ResourceTemplate) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["name"]; raw != nil && !ok {
+		return fmt.Errorf("field name in ResourceTemplate: required")
+	}
+	if _, ok := raw["uriTemplate"]; raw != nil && !ok {
+		return fmt.Errorf("field uriTemplate in ResourceTemplate: required")
+	}
+	type Plain ResourceTemplate
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = ResourceTemplate(plain)
+	return nil
+}
+
+type ServerNotification interface{}
+
+type ServerRequest interface{}
+
+type ServerResult interface{}
+
+// A notification from the server to the client, informing it that a resource has
+// changed and may need to be read again. This should only be sent if the client
+// previously sent a resources/subscribe request.
+type ResourceUpdatedNotification struct {
+	// Method corresponds to the JSON schema field "method".
+	Method string `json:"method" yaml:"method" mapstructure:"method"`
+
+	// Params corresponds to the JSON schema field "params".
+	Params ResourceUpdatedNotificationParams `json:"params" yaml:"params" mapstructure:"params"`
+}
+
+type ResourceUpdatedNotificationParams struct {
+	// The URI of the resource that has been updated. This might be a sub-resource of
+	// the one that the client actually subscribed to.
+	Uri string `json:"uri" yaml:"uri" mapstructure:"uri"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *ResourceUpdatedNotificationParams) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["uri"]; raw != nil && !ok {
+		return fmt.Errorf("field uri in ResourceUpdatedNotificationParams: required")
+	}
+	type Plain ResourceUpdatedNotificationParams
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = ResourceUpdatedNotificationParams(plain)
+	return nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *ResourceUpdatedNotification) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["method"]; raw != nil && !ok {
+		return fmt.Errorf("field method in ResourceUpdatedNotification: required")
+	}
+	if _, ok := raw["params"]; raw != nil && !ok {
+		return fmt.Errorf("field params in ResourceUpdatedNotification: required")
+	}
+	type Plain ResourceUpdatedNotification
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = ResourceUpdatedNotification(plain)
+	return nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *Resource) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["name"]; raw != nil && !ok {
+		return fmt.Errorf("field name in Resource: required")
+	}
+	if _, ok := raw["uri"]; raw != nil && !ok {
+		return fmt.Errorf("field uri in Resource: required")
+	}
+	type Plain Resource
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = Resource(plain)
 	return nil
 }
 
