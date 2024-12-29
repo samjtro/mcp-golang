@@ -134,6 +134,359 @@ type resource struct {
 
 type ServerOptions func(*Server)
 
+// The server's response to a tool call.
+//
+// Any errors that originate from the tool SHOULD be reported inside the result
+// object, with `isError` set to true, _not_ as an MCP protocol-level error
+// response. Otherwise, the LLM would not be able to see that an error occurred
+// and self-correct.
+//
+// However, any errors in _finding_ the tool, an error indicating that the
+// server does not support tool calls, or any other exceptional conditions,
+// should be reported as an MCP error response.
+type CallToolResult struct {
+	// This result property is reserved by the protocol to allow clients and servers
+	// to attach additional metadata to their responses.
+	Meta CallToolResultMeta `json:"_meta,omitempty" yaml:"_meta,omitempty" mapstructure:"_meta,omitempty"`
+
+	// Content corresponds to the JSON schema field "content".
+	Content []interface{} `json:"content" yaml:"content" mapstructure:"content"`
+
+	// Whether the tool call ended in an error.
+	//
+	// If not set, this is assumed to be false (the call was successful).
+	IsError *bool `json:"isError,omitempty" yaml:"isError,omitempty" mapstructure:"isError,omitempty"`
+}
+
+// The server's response to a completion/complete request
+type CompleteResult struct {
+	// This result property is reserved by the protocol to allow clients and servers
+	// to attach additional metadata to their responses.
+	Meta CompleteResultMeta `json:"_meta,omitempty" yaml:"_meta,omitempty" mapstructure:"_meta,omitempty"`
+
+	// Completion corresponds to the JSON schema field "completion".
+	Completion CompleteResultCompletion `json:"completion" yaml:"completion" mapstructure:"completion"`
+}
+
+type CompleteResultCompletion struct {
+	// Indicates whether there are additional completion options beyond those provided
+	// in the current response, even if the exact total is unknown.
+	HasMore *bool `json:"hasMore,omitempty" yaml:"hasMore,omitempty" mapstructure:"hasMore,omitempty"`
+
+	// The total number of completion options available. This can exceed the number of
+	// values actually sent in the response.
+	Total *int `json:"total,omitempty" yaml:"total,omitempty" mapstructure:"total,omitempty"`
+
+	// An array of completion values. Must not exceed 100 items.
+	Values []string `json:"values" yaml:"values" mapstructure:"values"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *CompleteResultCompletion) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["values"]; raw != nil && !ok {
+		return fmt.Errorf("field values in CompleteResultCompletion: required")
+	}
+	type Plain CompleteResultCompletion
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = CompleteResultCompletion(plain)
+	return nil
+}
+
+// The server's response to a prompts/get request from the client.
+type GetPromptResult struct {
+	// This result property is reserved by the protocol to allow clients and servers
+	// to attach additional metadata to their responses.
+	Meta GetPromptResultMeta `json:"_meta,omitempty" yaml:"_meta,omitempty" mapstructure:"_meta,omitempty"`
+
+	// An optional description for the prompt.
+	Description *string `json:"description,omitempty" yaml:"description,omitempty" mapstructure:"description,omitempty"`
+
+	// Messages corresponds to the JSON schema field "messages".
+	Messages []PromptMessage `json:"messages" yaml:"messages" mapstructure:"messages"`
+}
+
+// This result property is reserved by the protocol to allow clients and servers to
+// attach additional metadata to their responses.
+type GetPromptResultMeta map[string]interface{}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *GetPromptResult) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["messages"]; raw != nil && !ok {
+		return fmt.Errorf("field messages in GetPromptResult: required")
+	}
+	type Plain GetPromptResult
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = GetPromptResult(plain)
+	return nil
+}
+
+// After receiving an initialize request from the client, the server sends this
+// response.
+type InitializeResult struct {
+	// This result property is reserved by the protocol to allow clients and servers
+	// to attach additional metadata to their responses.
+	Meta InitializeResultMeta `json:"_meta,omitempty" yaml:"_meta,omitempty" mapstructure:"_meta,omitempty"`
+
+	// Capabilities corresponds to the JSON schema field "capabilities".
+	Capabilities ServerCapabilities `json:"capabilities" yaml:"capabilities" mapstructure:"capabilities"`
+
+	// Instructions describing how to use the server and its features.
+	//
+	// This can be used by clients to improve the LLM's understanding of available
+	// tools, resources, etc. It can be thought of like a "hint" to the model. For
+	// example, this information MAY be added to the system prompt.
+	Instructions *string `json:"instructions,omitempty" yaml:"instructions,omitempty" mapstructure:"instructions,omitempty"`
+
+	// The version of the Model Context Protocol that the server wants to use. This
+	// may not match the version that the client requested. If the client cannot
+	// support this version, it MUST disconnect.
+	ProtocolVersion string `json:"protocolVersion" yaml:"protocolVersion" mapstructure:"protocolVersion"`
+
+	// ServerInfo corresponds to the JSON schema field "serverInfo".
+	ServerInfo Implementation `json:"serverInfo" yaml:"serverInfo" mapstructure:"serverInfo"`
+}
+
+// This result property is reserved by the protocol to allow clients and servers to
+// attach additional metadata to their responses.
+type InitializeResultMeta map[string]interface{}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *InitializeResult) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["capabilities"]; raw != nil && !ok {
+		return fmt.Errorf("field capabilities in InitializeResult: required")
+	}
+	if _, ok := raw["protocolVersion"]; raw != nil && !ok {
+		return fmt.Errorf("field protocolVersion in InitializeResult: required")
+	}
+	if _, ok := raw["serverInfo"]; raw != nil && !ok {
+		return fmt.Errorf("field serverInfo in InitializeResult: required")
+	}
+	type Plain InitializeResult
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = InitializeResult(plain)
+	return nil
+}
+
+// The server's response to a prompts/list request from the client.
+type ListPromptsResult struct {
+	// This result property is reserved by the protocol to allow clients and servers
+	// to attach additional metadata to their responses.
+	Meta ListPromptsResultMeta `json:"_meta,omitempty" yaml:"_meta,omitempty" mapstructure:"_meta,omitempty"`
+
+	// An opaque token representing the pagination position after the last returned
+	// result.
+	// If present, there may be more results available.
+	NextCursor *string `json:"nextCursor,omitempty" yaml:"nextCursor,omitempty" mapstructure:"nextCursor,omitempty"`
+
+	// Prompts corresponds to the JSON schema field "prompts".
+	Prompts []Prompt `json:"prompts" yaml:"prompts" mapstructure:"prompts"`
+}
+
+// This result property is reserved by the protocol to allow clients and servers to
+// attach additional metadata to their responses.
+type ListPromptsResultMeta map[string]interface{}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *ListPromptsResult) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["prompts"]; raw != nil && !ok {
+		return fmt.Errorf("field prompts in ListPromptsResult: required")
+	}
+	type Plain ListPromptsResult
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = ListPromptsResult(plain)
+	return nil
+}
+
+// The server's response to a resources/templates/list request from the client.
+type ListResourceTemplatesResult struct {
+	// This result property is reserved by the protocol to allow clients and servers
+	// to attach additional metadata to their responses.
+	Meta ListResourceTemplatesResultMeta `json:"_meta,omitempty" yaml:"_meta,omitempty" mapstructure:"_meta,omitempty"`
+
+	// An opaque token representing the pagination position after the last returned
+	// result.
+	// If present, there may be more results available.
+	NextCursor *string `json:"nextCursor,omitempty" yaml:"nextCursor,omitempty" mapstructure:"nextCursor,omitempty"`
+
+	// ResourceTemplates corresponds to the JSON schema field "resourceTemplates".
+	ResourceTemplates []ResourceTemplate `json:"resourceTemplates" yaml:"resourceTemplates" mapstructure:"resourceTemplates"`
+}
+
+// This result property is reserved by the protocol to allow clients and servers to
+// attach additional metadata to their responses.
+type ListResourceTemplatesResultMeta map[string]interface{}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *ListResourceTemplatesResult) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["resourceTemplates"]; raw != nil && !ok {
+		return fmt.Errorf("field resourceTemplates in ListResourceTemplatesResult: required")
+	}
+	type Plain ListResourceTemplatesResult
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = ListResourceTemplatesResult(plain)
+	return nil
+}
+
+// The server's response to a resources/list request from the client.
+type ListResourcesResult struct {
+	// This result property is reserved by the protocol to allow clients and servers
+	// to attach additional metadata to their responses.
+	Meta ListResourcesResultMeta `json:"_meta,omitempty" yaml:"_meta,omitempty" mapstructure:"_meta,omitempty"`
+
+	// An opaque token representing the pagination position after the last returned
+	// result.
+	// If present, there may be more results available.
+	NextCursor *string `json:"nextCursor,omitempty" yaml:"nextCursor,omitempty" mapstructure:"nextCursor,omitempty"`
+
+	// Resources corresponds to the JSON schema field "resources".
+	Resources []Resource `json:"resources" yaml:"resources" mapstructure:"resources"`
+}
+
+// This result property is reserved by the protocol to allow clients and servers to
+// attach additional metadata to their responses.
+type ListResourcesResultMeta map[string]interface{}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *ListResourcesResult) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["resources"]; raw != nil && !ok {
+		return fmt.Errorf("field resources in ListResourcesResult: required")
+	}
+	type Plain ListResourcesResult
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = ListResourcesResult(plain)
+	return nil
+}
+
+// Sent from the server to request a list of root URIs from the client. Roots allow
+// servers to ask for specific directories or files to operate on. A common example
+// for roots is providing a set of repositories or directories a server should
+// operate
+// on.
+//
+// This request is typically used when the server needs to understand the file
+// system
+// structure or access specific locations that the client has permission to read
+// from.
+type ListRootsRequest struct {
+	// Method corresponds to the JSON schema field "method".
+	Method string `json:"method" yaml:"method" mapstructure:"method"`
+
+	// Params corresponds to the JSON schema field "params".
+	Params *ListRootsRequestParams `json:"params,omitempty" yaml:"params,omitempty" mapstructure:"params,omitempty"`
+}
+
+type ListRootsRequestParams struct {
+	// Meta corresponds to the JSON schema field "_meta".
+	Meta *ListRootsRequestParamsMeta `json:"_meta,omitempty" yaml:"_meta,omitempty" mapstructure:"_meta,omitempty"`
+
+	AdditionalProperties interface{} `mapstructure:",remain"`
+}
+
+type ListRootsRequestParamsMeta struct {
+	// If specified, the caller is requesting out-of-band progress notifications for
+	// this request (as represented by notifications/progress). The value of this
+	// parameter is an opaque token that will be attached to any subsequent
+	// notifications. The receiver is not obligated to provide these notifications.
+	ProgressToken *ProgressToken `json:"progressToken,omitempty" yaml:"progressToken,omitempty" mapstructure:"progressToken,omitempty"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *ListRootsRequest) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["method"]; raw != nil && !ok {
+		return fmt.Errorf("field method in ListRootsRequest: required")
+	}
+	type Plain ListRootsRequest
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = ListRootsRequest(plain)
+	return nil
+}
+
+// The server's response to a tools/list request from the client.
+type ListToolsResult struct {
+	// This result property is reserved by the protocol to allow clients and servers
+	// to attach additional metadata to their responses.
+	Meta ListToolsResultMeta `json:"_meta,omitempty" yaml:"_meta,omitempty" mapstructure:"_meta,omitempty"`
+
+	// An opaque token representing the pagination position after the last returned
+	// result.
+	// If present, there may be more results available.
+	NextCursor *string `json:"nextCursor,omitempty" yaml:"nextCursor,omitempty" mapstructure:"nextCursor,omitempty"`
+
+	// Tools corresponds to the JSON schema field "tools".
+	Tools []Tool `json:"tools" yaml:"tools" mapstructure:"tools"`
+}
+
+// This result property is reserved by the protocol to allow clients and servers to
+// attach additional metadata to their responses.
+type ListToolsResultMeta map[string]interface{}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *ListToolsResult) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["tools"]; raw != nil && !ok {
+		return fmt.Errorf("field tools in ListToolsResult: required")
+	}
+	type Plain ListToolsResult
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = ListToolsResult(plain)
+	return nil
+}
+
 func WithProtocol(protocol *protocol.Protocol) ServerOptions {
 	return func(s *Server) {
 		s.protocol = protocol

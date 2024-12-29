@@ -60,6 +60,27 @@ type BlobResourceContents struct {
 	Uri string `json:"uri" yaml:"uri" mapstructure:"uri"`
 }
 
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *BlobResourceContents) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["blob"]; raw != nil && !ok {
+		return fmt.Errorf("field blob in BlobResourceContents: required")
+	}
+	if _, ok := raw["uri"]; raw != nil && !ok {
+		return fmt.Errorf("field uri in BlobResourceContents: required")
+	}
+	type Plain BlobResourceContents
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	*j = BlobResourceContents(plain)
+	return nil
+}
+
 type TextResourceContents struct {
 	// The MIME type of this resource, if known.
 	MimeType *string `json:"mimeType,omitempty" yaml:"mimeType,omitempty" mapstructure:"mimeType,omitempty"`
